@@ -11,7 +11,8 @@ public class PlatformThemeLinux : PlatformTheme
     {
         // Check for KDE
         const string constFilePath = ".config/kdeglobals";
-        const string kdeSearchPattern = "activeBackground=";
+        const string kdeCategoryPattern = "[Colors:Window]";
+        const string kdeSearchPattern = "BackgroundNormal=";
 
         var filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), constFilePath);
         
@@ -20,13 +21,20 @@ public class PlatformThemeLinux : PlatformTheme
             var handle = File.Open(filePath, FileMode.Open);
             using (var reader = new StreamReader(handle))
             {
+                var inTargetCategory = false;
                 while (!reader.EndOfStream)
                 {
                     var line = reader.ReadLine();
                     if (line == null)
                         continue;
+
+                    if (line.StartsWith("["))
+                    {
+                        inTargetCategory = line.StartsWith(kdeCategoryPattern);
+                        continue;
+                    }
                     
-                    if (line.StartsWith(kdeSearchPattern))
+                    if (inTargetCategory && line.StartsWith(kdeSearchPattern))
                     {
                         line = line.Substring(kdeSearchPattern.Length);
                         var colors = line.Split(',');

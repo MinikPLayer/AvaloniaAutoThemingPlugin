@@ -11,11 +11,20 @@ using Avalonia.Themes.Fluent;
 
 namespace Avalonia.Themes;
 
-public static class ThemeEngine
+public class ThemedWindow : Window
 {
-    private static object[] abandonOperation = new object[] { false };
+    private object[] abandonOperation = new object[] { false };
 
-    public static FluentThemeMode CurrentMode
+    public static readonly StyledProperty<byte> BackgroundAlphaProperty =
+        AvaloniaProperty.Register<ThemedWindow, byte>(nameof(BackgroundAlpha));
+
+    public byte BackgroundAlpha
+    {
+        get => GetValue(BackgroundAlphaProperty);
+        set => SetValue(BackgroundAlphaProperty, value);
+    }
+        
+    public FluentThemeMode CurrentMode
     {
         get
         {
@@ -34,23 +43,13 @@ public static class ThemeEngine
         }
     }
 
-    public static Color ToColor(this Vector3 v, byte alpha = 255)
+    private async Task BackgroundChange(object[] abandonOperationFlag, Color target, bool smooth = true)
     {
-        return Color.FromArgb(alpha, (byte)v.X, (byte)v.Y, (byte)v.Z);
-    }
-
-    public static Vector3 ToVector3(this Color c)
-    {
-        return new Vector3(c.R, c.G, c.B);
-    }
-
-    private static async Task BackgroundChange(object[] abandonOperationFlag, Window window, Color target, bool smooth = true)
-    {
-        var cur = window.Background as SolidColorBrush;
+        var cur = this.Background as SolidColorBrush;
         //ImmutableSolidColorBrush? curI = null;
-        if (window.ActualTransparencyLevel != WindowTransparencyLevel.None)
+        if (this.ActualTransparencyLevel != WindowTransparencyLevel.None && this.TransparencyLevelHint != WindowTransparencyLevel.None)
         {
-            target = Color.FromArgb(128, target.R, target.G, target.B);
+            target = Color.FromArgb(BackgroundAlpha, target.R, target.G, target.B);
             //curI = window.TransparencyBackgroundFallback as ImmutableSolidColorBrush;
             if(cur == null)
                 cur = new SolidColorBrush(Colors.Transparent);
@@ -58,7 +57,7 @@ public static class ThemeEngine
 
         if (cur == null) //&& curI is null)
         {
-            window.Background = new SolidColorBrush(target);
+            this.Background = new SolidColorBrush(target);
             return;
         }
 
@@ -80,39 +79,71 @@ public static class ThemeEngine
                 var curStep = cur3 + step * i;
 
                 var newColor = curStep.ToColor((byte)(curColor.A + alphaStep * i));
-                window.Background = new SolidColorBrush(newColor);
+                this.Background = new SolidColorBrush(newColor);
                 await Task.Delay(8);
             }
         }
 
-        window.Background = new SolidColorBrush(target);
+        this.Background = new SolidColorBrush(target);
     }
 
-    static void InvalidateRunningOperations()
+    void InvalidateRunningOperations()
     {
         abandonOperation[0] = true;
         abandonOperation = new object[] { false };
     }
     
-    public static async Task ChangeToSystemTheme(Window window, bool smooth = false)
+    public async Task ChangeToSystemTheme(bool smooth = false)
     {
         CurrentMode = PlatformTheme.IsDarkMode() ? FluentThemeMode.Dark : FluentThemeMode.Light;
         
         InvalidateRunningOperations();
-        await BackgroundChange(abandonOperation, window, PlatformTheme.GetBackgroundColor(), smooth);
+        await BackgroundChange(abandonOperation,PlatformTheme.GetBackgroundColor(), smooth);
     }
     
-    public static async Task ChangeDarkLightMode(Window window, FluentThemeMode newMode)
+    public async Task ChangeDarkLightMode(FluentThemeMode newMode)
     {
         CurrentMode = newMode;
 
         InvalidateRunningOperations();
-        await BackgroundChange(abandonOperation, window, newMode == FluentThemeMode.Light ? Colors.White : Colors.Black);
+        await BackgroundChange(abandonOperation, newMode == FluentThemeMode.Light ? Colors.White : Colors.Black);
     }
     
-    public static async Task FlipDarkLightMode(Window window)
+    public async Task FlipDarkLightMode()
     {
-        await ChangeDarkLightMode(window,
-            CurrentMode == FluentThemeMode.Dark ? FluentThemeMode.Light : FluentThemeMode.Dark);
+        await ChangeDarkLightMode(CurrentMode == FluentThemeMode.Dark ? FluentThemeMode.Light : FluentThemeMode.Dark);
+    }
+
+    private bool enableAutoTheme = false;
+    public async void EnableAutoTheme(int delay = 1000)
+    {
+        if (enableAutoTheme)
+            return;
+
+        // Wait for initialization to apply properties after derived class InitializeComponent() call
+        while (!IsInitialized)
+            await Task.Delay(5);
+
+        enableAutoTheme = true;
+        while (enableAutoTheme)
+        {
+            await ChangeToSystemTheme();
+            await Task.Delay(delay);
+        }
+    }
+
+    public void DisableAutoTheme()
+    {
+        enableAutoTheme = false;
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        enableAutoTheme = false;
+    }
+
+    public ThemedWindow()
+    {
+        EnableAutoTheme();
     }
 }
