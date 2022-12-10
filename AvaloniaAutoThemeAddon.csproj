@@ -9,12 +9,7 @@
 
     <ItemGroup>
       <PackageReference Include="Avalonia" Version="11.0.0-preview4" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Reference Include="Avalonia.Themes.Fluent">
-        <HintPath>..\..\..\.nuget\packages\avalonia.themes.fluent\11.0.0-preview4\lib\net6.0\Avalonia.Themes.Fluent.dll</HintPath>
-      </Reference>
+      <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0-preview4" />
     </ItemGroup>
 
 </Project>
